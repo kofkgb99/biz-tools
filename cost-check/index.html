@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>비용율 분석기</title>
+<style>
+:root{
+  --bg:#f6f7f9; --card:#ffffff; --ink:#1b1f24; --muted:#5f6b7a; --line:#dde2e8;
+  --accent:#2f6fde; --accent-ink:#ffffff; --soft:#eef3fc;
+  --bad:#c62828; --bad-bg:#fdecec; --warn:#a15c00; --warn-bg:#fff4e0;
+  --good:#1e7d3a; --good-bg:#e7f6ec; --neutral-bg:#eef0f3; --hl:#fde7ef;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121417; --card:#1b1e23; --ink:#e7eaee; --muted:#9aa5b1; --line:#2d323a;
+    --accent:#6b9cff; --accent-ink:#0d1117; --soft:#1f2a3d;
+    --bad:#ff7b7b; --bad-bg:#3a1f22; --warn:#ffbf5e; --warn-bg:#3a2e1a;
+    --good:#6fd38c; --good-bg:#1b3324; --neutral-bg:#252a31; --hl:#3d2230;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121417; --card:#1b1e23; --ink:#e7eaee; --muted:#9aa5b1; --line:#2d323a;
+  --accent:#6b9cff; --accent-ink:#0d1117; --soft:#1f2a3d;
+  --bad:#ff7b7b; --bad-bg:#3a1f22; --warn:#ffbf5e; --warn-bg:#3a2e1a;
+  --good:#6fd38c; --good-bg:#1b3324; --neutral-bg:#252a31; --hl:#3d2230;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif}
+.wrap{max-width:1200px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px}
+.card h2{font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.step{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:12px;font-weight:700}
+textarea{width:100%;min-height:150px;font:12px/1.4 Consolas,monospace;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px;resize:vertical}
+button,select,input{font:inherit;color:inherit}
+button{background:var(--neutral-bg);border:1px solid var(--line);border-radius:7px;padding:7px 12px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+select,input[type=number],input[type=search]{background:var(--card);border:1px solid var(--line);border-radius:7px;padding:6px 8px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.row+.row{margin-top:10px}
+.hint{color:var(--muted);font-size:12.5px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
+.field select,.field input{width:100%}
+.levels{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;background:var(--bg);cursor:pointer;font-size:13px}
+.chip input{margin:0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:12px}
+.kpi{border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:var(--bg)}
+.kpi .k{font-size:12px;color:var(--muted)}
+.kpi .v{font-size:20px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+.kpi .d{font-size:12.5px;margin-top:2px}
+.up{color:var(--bad)} .down{color:var(--good)} .flat{color:var(--muted)}
+.vchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.vchip{border:1px solid var(--line);border-radius:999px;padding:4px 11px;font-size:13px;cursor:pointer;background:var(--card)}
+.vchip.on{outline:2px solid var(--accent)}
+.crumbs{margin:6px 0 8px;font-size:13px}
+.crumbs a{color:var(--accent);cursor:pointer;text-decoration:none}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:13px}
+th,td{padding:7px 9px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:right}
+th{background:var(--neutral-bg);position:sticky;top:0;cursor:pointer;user-select:none;font-weight:600;font-size:12.5px}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--card);z-index:1}
+th:first-child{background:var(--neutral-bg);z-index:2}
+tr.drill td:first-child{color:var(--accent);cursor:pointer}
+tr.drill:hover td{background:var(--soft)}
+tr.total td{font-weight:700;background:var(--neutral-bg)}
+td.hl{background:var(--hl)}
+.badge{display:inline-block;border-radius:6px;padding:1px 7px;font-size:12px;font-weight:600}
+.b-big{background:var(--bad-bg);color:var(--bad)}
+.b-prob{background:var(--warn-bg);color:var(--warn)}
+.b-keep,.b-ok{background:var(--good-bg);color:var(--good)}
+.b-new,.b-end,.b-small,.b-chk{background:var(--neutral-bg);color:var(--muted)}
+.legend{margin-top:10px;font-size:12.5px;color:var(--muted)}
+.legend td,.legend th{text-align:left;white-space:normal;position:static}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:.95}
+.err{color:var(--bad);font-size:13px;margin-top:6px}
+.hidden{display:none}
+footer{color:var(--muted);font-size:12px;text-align:center;margin-top:20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>비용율 분석기</h1>
+  <p class="sub">전년 실적과 계획을 비교해서 <b>비용율이 오른 곳</b>을 찾아요. 데이터는 이 브라우저 안에서만 계산되고 어디에도 전송되지 않아요.</p>
+
+  <div class="card">
+    <h2><span class="step">1</span>엑셀 표 붙여넣기</h2>
+    <p class="hint" style="margin:0 0 8px">엑셀에서 <b>머리글 한 줄 + 데이터</b>를 복사해 붙여넣으세요. 피벗처럼 위 칸과 같아서 비어 있는 이름 칸은 자동으로 채워요. 금액은 콤마·(괄호 음수)·% 표기 모두 괜찮아요.</p>
+    <textarea id="raw" placeholder="채널	제품	전년 매출	전년 비용	계획 매출	계획 비용	전년 CM	계획 CM&#10;온라인	A제품	1,200	240	1,350	300	420	430&#10;..."></textarea>
+    <div class="row" style="margin-top:8px">
+      <button class="primary" id="btnParse">표 읽기</button>
+      <button id="btnSample">🧪 샘플 넣기</button>
+      <button id="btnClear">🗑 지우기</button>
+      <span class="hint" id="parseInfo"></span>
+    </div>
+    <div class="err" id="parseErr"></div>
+  </div>
+
+  <div class="card hidden" id="mapCard">
+    <h2><span class="step">2</span>열 지정 · 기준</h2>
+    <div class="field" style="margin-bottom:10px">
+      <label>분석 단계 (왼쪽부터 큰 단위 → 클릭하면 아래 단계로 내려가요)</label>
+      <div class="levels" id="levels"></div>
+    </div>
+    <div class="grid" id="mapGrid"></div>
+    <div class="grid" style="margin-top:10px">
+      <div class="field"><label>비용 열 형식</label>
+        <select id="costMode"><option value="amt">금액</option><option value="rate">비용율(%)</option></select></div>
+      <div class="field"><label>비용율 상승 기준 (%p 초과)</label>
+        <input type="number" id="thr" step="0.1" value="0"></div>
+      <div class="field"><label>최소 매출 (둘 다 미만이면 판정 제외)</label>
+        <input type="number" id="minSales" step="1" value="0"></div>
+      <div class="field"><label>보는 단위</label>
+        <select id="unit"><option value="1">그대로</option><option value="1000">천</option><option value="1000000">백만</option><option value="100000000">억</option></select></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label class="chip"><input type="checkbox" id="skipTotals" checked> '합계·총계·소계' 줄 빼기</label>
+      <button class="primary" id="btnRun">분석하기</button>
+    </div>
+    <div class="err" id="mapErr"></div>
+  </div>
+
+  <div class="card hidden" id="resCard">
+    <h2><span class="step">3</span>결과</h2>
+    <div class="kpis" id="kpis"></div>
+    <div class="vchips" id="vchips"></div>
+    <div class="row">
+      <input type="search" id="search" placeholder="이름 검색">
+      <button id="btnCopyTable">📋 표 복사</button>
+      <button id="btnCopySummary">📋 Claude 전달용 요약 복사</button>
+      <button id="btnCsv">📥 CSV 저장</button>
+    </div>
+    <div class="crumbs" id="crumbs"></div>
+    <div class="tablewrap"><table id="tbl"></table></div>
+    <div class="legend">
+      <b>판정 기준</b> (비용율 상승 = 계획 비용율 − 전년 비용율이 기준 %p 초과)<br>
+      🔴 <b>큰 문제</b>: 비용율 ↑ + 매출 ↓(또는 같음) · ⚠️ <b>문제</b>: 비용율 ↑ + 매출 ↑ 인데 CM ↓ ·
+      🟢 <b>CM 유지</b>: 비용율 ↑ 이지만 CM은 전년 이상 · 🟡 <b>확인</b>: 비용율 ↑ + 매출 ↑ (CM 열 없음) ·
+      ✅ <b>OK</b>: 비용율 유지·개선 · 🆕 신규 / ⛔ 종료 / · 소액<br>
+      분홍 칸 = 비용율 상승(기준 초과) 또는 CM율 하락.
+      CM 변동 분해: 매출효과 = 매출 증감 × 전년 CM율 · 비용율효과 = −비용율 증감 × 계획 매출 · 기타효과 = 나머지(원가율 등).
+    </div>
+  </div>
+
+  <footer>데이터는 서버로 보내지 않아요 · 입력값은 이 브라우저에만 저장돼요 (🗑 지우기로 삭제)</footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+const $ = id => document.getElementById(id);
+const ROLES = [
+  {key:"ps", label:"전년 매출", req:true, re:[/(전년|실적|전기|prev|LY).*매출|매출.*(전년|실적|전기)/i]},
+  {key:"pc", label:"전년 비용", req:true, re:[/(전년|실적|전기).*(비용|판촉)|(비용|판촉).*(전년|실적|전기)/i]},
+  {key:"ns", label:"계획 매출", req:true, re:[/(계획|목표|당기|plan|금년).*매출|매출.*(계획|목표|당기)/i]},
+  {key:"nc", label:"계획 비용", req:true, re:[/(계획|목표|당기|금년).*(비용|판촉)|(비용|판촉).*(계획|목표|당기)/i]},
+  {key:"pm", label:"전년 CM (선택)", req:false, re:[/(전년|실적|전기).*(CM|공헌)|(CM|공헌).*(전년|실적|전기)/i]},
+  {key:"nm", label:"계획 CM (선택)", req:false, re:[/(계획|목표|당기|금년).*(CM|공헌)|(CM|공헌).*(계획|목표|당기)/i]}
+];
+const V = {
+  big:{t:"🔴 큰 문제",c:"b-big",o:0}, prob:{t:"⚠️ 문제",c:"b-prob",o:1}, chk:{t:"🟡 확인",c:"b-chk",o:2},
+  keep:{t:"🟢 CM 유지",c:"b-keep",o:3}, ok:{t:"✅ OK",c:"b-ok",o:4}, "new":{t:"🆕 신규",c:"b-new",o:5},
+  end:{t:"⛔ 종료",c:"b-end",o:6}, small:{t:"· 소액",c:"b-small",o:7}
+};
+let table = null;      // {head:[], rows:[[]], numeric:[bool]}
+let data = null;       // [{path:[], ps,pc,ns,nc,pm,nm}]
+let levels = [];       // selected level column idx
+let hasCM = false;
+let state = {path:[], sort:{k:"dRate",dir:-1}, filter:"all", q:""};
+
+function store(k,v){ try{ if(v==null) localStorage.removeItem(k); else localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+function load(k){ try{ const s=localStorage.getItem(k); return s?JSON.parse(s):null; }catch(e){ return null; } }
+function toast(m){ const t=$("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("show"),1600); }
+
+function num(s){
+  if(s==null) return NaN;
+  let t=String(s).trim();
+  if(t===""||t==="-"||t==="–") return t===""?NaN:0;
+  let neg=false;
+  if(/^\(.*\)$/.test(t)){ neg=true; t=t.slice(1,-1); }
+  t=t.replace(/[,\s₩원%]/g,"");
+  if(t.startsWith("△")||t.startsWith("▲")){ neg=t.startsWith("△"); t=t.slice(1); }
+  if(!/^[-+]?\d*\.?\d+(e[-+]?\d+)?$/i.test(t)) return NaN;
+  const v=parseFloat(t); return neg?-v:v;
+}
+
+function parse(text){
+  let lines=text.replace(/\r/g,"").split("\n").filter(l=>l.trim()!=="");
+  if(lines.length<2) throw new Error("머리글과 데이터가 최소 2줄은 있어야 해요.");
+  const sep = lines[0].includes("\t") ? "\t" : ",";
+  let rows=lines.map(l=>l.split(sep).map(c=>c.trim()));
+  const w=Math.max(...rows.map(r=>r.length));
+  rows=rows.map(r=>{ while(r.length<w) r.push(""); return r; });
+  const head=rows[0].map((h,i)=>h||("열"+(i+1)));
+  const body=rows.slice(1);
+  const numeric=head.map((_,i)=>{
+    let n=0,f=0; body.forEach(r=>{ const c=r[i]; if(c==="") return; f++; if(!isNaN(num(c))) n++; });
+    return f>0 && n/f>=0.8;
+  });
+  return {head,rows:body,numeric};
+}
+
+function guessMap(){
+  const map={}; const used=new Set();
+  const numCols=table.head.map((h,i)=>i).filter(i=>table.numeric[i]);
+  ROLES.forEach(r=>{
+    const i=numCols.find(i=>!used.has(i)&&r.re.some(re=>re.test(table.head[i])));
+    if(i!=null){ map[r.key]=i; used.add(i); }
+  });
+  // fallback: order of remaining numeric columns
+  const rest=numCols.filter(i=>!used.has(i));
+  ["ps","pc","ns","nc"].forEach(k=>{ if(map[k]==null && rest.length) { map[k]=rest.shift(); } });
+  return map;
+}
+
+function renderMapping(saved){
+  const lv=$("levels"); lv.innerHTML="";
+  const textCols=table.head.map((h,i)=>i).filter(i=>!table.numeric[i]);
+  const selLv = saved&&saved.levels ? saved.levels : textCols;
+  textCols.forEach(i=>{
+    const l=document.createElement("label"); l.className="chip";
+    l.innerHTML=`<input type="checkbox" value="${i}" ${selLv.includes(i)?"checked":""}> ${esc(table.head[i])}`;
+    lv.appendChild(l);
+  });
+  if(!textCols.length) lv.innerHTML='<span class="hint">이름(글자) 열이 없어요. 전체 합계만 보여요.</span>';
+  const map = saved&&saved.map ? saved.map : guessMap();
+  const g=$("mapGrid"); g.innerHTML="";
+  ROLES.forEach(r=>{
+    const d=document.createElement("div"); d.className="field";
+    let opts=`<option value="">— ${r.req?"선택":"없음"} —</option>`;
+    table.head.forEach((h,i)=>{ if(table.numeric[i]) opts+=`<option value="${i}" ${map[r.key]===i?"selected":""}>${esc(h)}</option>`; });
+    d.innerHTML=`<label>${r.label}</label><select data-role="${r.key}">${opts}</select>`;
+    g.appendChild(d);
+  });
+  if(saved){ ["costMode","thr","minSales","unit"].forEach(k=>{ if(saved[k]!=null) $(k).value=saved[k]; }); if(saved.skipTotals!=null) $("skipTotals").checked=saved.skipTotals; }
+  $("mapCard").classList.remove("hidden");
+}
+
+function readConfig(){
+  const map={}; document.querySelectorAll("#mapGrid select").forEach(s=>{ if(s.value!=="") map[s.dataset.role]=+s.value; });
+  const lv=[...document.querySelectorAll("#levels input:checked")].map(x=>+x.value);
+  return {map, levels:lv, costMode:$("costMode").value, thr:$("thr").value, minSales:$("minSales").value, unit:$("unit").value, skipTotals:$("skipTotals").checked};
+}
+
+function build(cfg){
+  const miss=ROLES.filter(r=>r.req&&cfg.map[r.key]==null).map(r=>r.label);
+  if(miss.length) throw new Error("이 열을 골라 주세요: "+miss.join(", "));
+  levels=cfg.levels.slice().sort((a,b)=>a-b);
+  hasCM = cfg.map.pm!=null && cfg.map.nm!=null;
+  const allText=table.head.map((h,i)=>i).filter(i=>!table.numeric[i]);
+  const last={}; const out=[];
+  table.rows.forEach(r=>{
+    // fill-down blank label cells (pivot style)
+    allText.forEach(i=>{ if(r[i]==="") r[i]=last[i]||""; else last[i]=r[i]; });
+    // once a higher column changes, lower blanks shouldn't inherit stale values: handled by pivot convention
+    const labels=allText.map(i=>r[i]).join(" ");
+    if(cfg.skipTotals && /(총\s*계|합\s*계|소\s*계|Total|전체\s*합)/i.test(labels)) return;
+    const g=k=>{ const i=cfg.map[k]; if(i==null) return 0; const v=num(r[i]); return isNaN(v)?0:v; };
+    let ps=g("ps"), ns=g("ns"), pc=g("pc"), nc=g("nc");
+    if(cfg.costMode==="rate"){ pc=ps*pc/100; nc=ns*nc/100; }
+    if(ps===0&&ns===0&&pc===0&&nc===0) return;
+    out.push({path:levels.map(i=>r[i]||"(빈칸)"), ps, pc, ns, nc, pm:g("pm"), nm:g("nm")});
+  });
+  if(!out.length) throw new Error("숫자가 들어 있는 데이터 줄을 찾지 못했어요.");
+  return out;
+}
+
+function agg(rows){
+  const a={ps:0,pc:0,ns:0,nc:0,pm:0,nm:0};
+  rows.forEach(r=>{ for(const k in a) a[k]+=r[k]; });
+  return calc(a);
+}
+function calc(a){
+  const thr=+$("thr").value||0, minS=+$("minSales").value||0;
+  a.pRate = a.ps? a.pc/a.ps*100 : null;
+  a.nRate = a.ns? a.nc/a.ns*100 : null;
+  a.dRate = (a.pRate!=null&&a.nRate!=null)? a.nRate-a.pRate : null;
+  a.dSales = a.ns-a.ps; a.gSales = a.ps? a.dSales/Math.abs(a.ps)*100 : null;
+  if(hasCM){
+    a.dCM=a.nm-a.pm;
+    a.pCMr = a.ps? a.pm/a.ps*100 : null; a.nCMr = a.ns? a.nm/a.ns*100 : null;
+    a.eSales = a.pCMr!=null ? a.dSales*a.pCMr/100 : 0;
+    a.eRate = a.dRate!=null ? -a.dRate/100*a.ns : 0;
+    a.eOther = a.dCM - a.eSales - a.eRate;
+  }
+  let v;
+  if(Math.max(Math.abs(a.ps),Math.abs(a.ns))<minS && minS>0) v="small";
+  else if(a.ps<=0 && a.ns>0) v="new";
+  else if(a.ns<=0 && a.ps>0) v="end";
+  else if(a.dRate==null || a.dRate<=thr) v="ok";
+  else if(a.ns<=a.ps) v="big";
+  else if(!hasCM) v="chk";
+  else v = a.nm<a.pm ? "prob" : "keep";
+  a.v=v; a.rateUp = a.dRate!=null && a.dRate>thr;
+  return a;
+}
+
+function inPath(r,path){ for(let i=0;i<path.length;i++) if(r.path[i]!==path[i]) return false; return true; }
+
+function groups(path){
+  const depth=path.length; const sub=data.filter(r=>inPath(r,path));
+  if(depth>=levels.length) return {sub, list:[]};
+  const m=new Map();
+  sub.forEach(r=>{ const k=r.path[depth]; if(!m.has(k)) m.set(k,[]); m.get(k).push(r); });
+  const list=[...m.entries()].map(([name,rs])=>Object.assign(agg(rs),{name}));
+  return {sub, list};
+}
+
+function fmt(v,dec){ if(v==null||isNaN(v)) return "–"; const u=+$("unit").value||1; const x=v/u; return x.toLocaleString("ko-KR",{maximumFractionDigits:dec!=null?dec:(u===1?0:1),minimumFractionDigits:dec!=null?dec:(u===1?0:1)}); }
+function pct(v){ return v==null||isNaN(v)? "–" : v.toFixed(2)+"%"; }
+function pp(v){ if(v==null||isNaN(v)) return "–"; return (v>0?"+":"")+v.toFixed(2)+"%p"; }
+function sg(v){ if(v==null||isNaN(v)) return "–"; return (v>0?"+":"")+v.toFixed(1)+"%"; }
+function sfmt(v){ if(v==null||isNaN(v)) return "–"; const s=fmt(v); return (v>0?"+":"")+s; }
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function cls(v){ return v==null||isNaN(v)||Math.abs(v)<1e-9?"flat":(v>0?"up":"down"); }
+
+function cols(){
+  const c=[
+    {k:"name",t:"이름"},
+    {k:"ps",t:"전년 매출",f:fmt},{k:"ns",t:"계획 매출",f:fmt},{k:"gSales",t:"매출 증감",f:sg,c:v=>cls(-v)},
+    {k:"pRate",t:"전년 비용율",f:pct},{k:"nRate",t:"계획 비용율",f:pct},{k:"dRate",t:"비용율 증감",f:pp,c:v=>cls(v),hl:a=>a.rateUp}
+  ];
+  if(hasCM) c.push(
+    {k:"pm",t:"전년 CM",f:fmt},{k:"nm",t:"계획 CM",f:fmt},{k:"dCM",t:"CM 증감",f:sfmt,c:v=>cls(-v)},
+    {k:"nCMr",t:"계획 CM율",f:pct,hl:a=>a.pCMr!=null&&a.nCMr!=null&&a.nCMr<a.pCMr},
+    {k:"eSales",t:"매출효과",f:sfmt},{k:"eRate",t:"비용율효과",f:sfmt},{k:"eOther",t:"기타효과",f:sfmt}
+  );
+  c.push({k:"v",t:"판정"});
+  return c;
+}
+
+function visible(list){
+  const q=state.q.trim().toLowerCase();
+  let l=list.filter(a=>{
+    if(q && !a.name.toLowerCase().includes(q)) return false;
+    if(state.filter==="all") return true;
+    if(state.filter==="issues") return a.v==="big"||a.v==="prob"||a.v==="chk";
+    if(state.filter==="rateup") return a.rateUp && !["new","end","small"].includes(a.v);
+    return a.v===state.filter;
+  });
+  const {k,dir}=state.sort;
+  l.sort((x,y)=>{
+    let a=x[k], b=y[k];
+    if(k==="v"){ a=V[a].o; b=V[b].o; }
+    if(k==="name") return dir*String(a).localeCompare(String(b),"ko");
+    if(a==null) return 1; if(b==null) return -1;
+    return dir*(a-b);
+  });
+  return l;
+}
+
+function render(){
+  const {sub,list}=groups(state.path);
+  const tot=agg(sub);
+  // KPIs
+  const k=[];
+  k.push(`<div class="kpi"><div class="k">매출 (전년 → 계획)</div><div class="v">${fmt(tot.ns)}</div><div class="d ${cls(-tot.gSales)}">전년 ${fmt(tot.ps)} · ${sg(tot.gSales)}</div></div>`);
+  k.push(`<div class="kpi"><div class="k">비용율 (전년 → 계획)</div><div class="v">${pct(tot.nRate)}</div><div class="d ${cls(tot.dRate)}">전년 ${pct(tot.pRate)} · ${pp(tot.dRate)}</div></div>`);
+  k.push(`<div class="kpi"><div class="k">비용 금액</div><div class="v">${fmt(tot.nc)}</div><div class="d ${cls(tot.nc-tot.pc)}">전년 ${fmt(tot.pc)} · ${sfmt(tot.nc-tot.pc)}</div></div>`);
+  if(hasCM) k.push(`<div class="kpi"><div class="k">CM (전년 → 계획)</div><div class="v">${fmt(tot.nm)}</div><div class="d ${cls(-tot.dCM)}">전년 ${fmt(tot.pm)} · ${sfmt(tot.dCM)}</div></div>`);
+  k.push(`<div class="kpi"><div class="k">이 단계 판정</div><div class="v"><span class="badge ${V[tot.v].c}">${V[tot.v].t}</span></div><div class="d flat">${state.path.length?esc(state.path.join(" › ")):"전체"}</div></div>`);
+  $("kpis").innerHTML=k.join("");
+  // verdict chips
+  const cnt={}; list.forEach(a=>cnt[a.v]=(cnt[a.v]||0)+1);
+  const chips=[["all","전체 "+list.length],["issues","문제만 (🔴⚠️🟡) "+((cnt.big||0)+(cnt.prob||0)+(cnt.chk||0))],["rateup","비용율 ↑ 전체 "+list.filter(a=>a.rateUp&&!["new","end","small"].includes(a.v)).length]];
+  Object.keys(V).forEach(key=>{ if(cnt[key]) chips.push([key,V[key].t+" "+cnt[key]]); });
+  $("vchips").innerHTML=chips.map(([key,t])=>`<span class="vchip ${state.filter===key?"on":""}" data-f="${key}">${t}</span>`).join("");
+  // crumbs
+  const cr=['<a data-d="0">전체</a>'];
+  state.path.forEach((p,i)=>cr.push(`<a data-d="${i+1}">${esc(p)}</a>`));
+  const nextLv = state.path.length<levels.length ? table.head[levels[state.path.length]] : null;
+  $("crumbs").innerHTML=cr.join(" › ")+(nextLv?` <span class="hint">· ${esc(nextLv)}별 보기 (이름 클릭 → 아래 단계)</span>`:' <span class="hint">· 마지막 단계예요</span>');
+  // table
+  const C=cols(); const canDrill=state.path.length+1<levels.length;
+  let h="<thead><tr>"+C.map(c=>`<th data-k="${c.k}">${c.t}${state.sort.k===c.k?(state.sort.dir>0?" ▲":" ▼"):""}</th>`).join("")+"</tr></thead><tbody>";
+  const rowHtml=(a,isTot)=>`<tr class="${isTot?"total":(canDrill?"drill":"")}" ${!isTot&&canDrill?`data-n="${esc(a.name)}"`:""}>`+C.map(c=>{
+    if(c.k==="name") return `<td>${isTot?"합계":esc(a.name)}</td>`;
+    if(c.k==="v") return `<td><span class="badge ${V[a.v].c}">${V[a.v].t}</span></td>`;
+    const v=a[c.k]; const cl=[c.c?c.c(v):"", c.hl&&c.hl(a)?"hl":""].join(" ");
+    return `<td class="${cl}">${c.f(v)}</td>`;
+  }).join("")+"</tr>";
+  const vis=visible(list);
+  h+=vis.map(a=>rowHtml(a,false)).join("");
+  if(!list.length) h+=`<tr><td colspan="${C.length}" style="text-align:left" class="hint">더 내려갈 단계가 없어요.</td></tr>`;
+  else if(!vis.length) h+=`<tr><td colspan="${C.length}" style="text-align:left" class="hint">조건에 맞는 항목이 없어요.</td></tr>`;
+  h+=rowHtml(tot,true)+"</tbody>";
+  $("tbl").innerHTML=h;
+  $("resCard").classList.remove("hidden");
+}
+
+function tsv(){
+  const {sub,list}=groups(state.path); const C=cols();
+  const plain=(c,a)=>{ if(c.k==="name") return a.name; if(c.k==="v") return V[a.v].t; const v=a[c.k]; if(v==null||isNaN(v)) return ""; if(["pRate","nRate","dRate","gSales","nCMr"].includes(c.k)) return v.toFixed(2); return String(Math.round(v/(+$("unit").value||1)*10)/10); };
+  const lines=[C.map(c=>c.t).join("\t")];
+  visible(list).forEach(a=>lines.push(C.map(c=>plain(c,a)).join("\t")));
+  const t=agg(sub); t.name="합계"; lines.push(C.map(c=>plain(c,t)).join("\t"));
+  return lines.join("\n");
+}
+
+function summary(){
+  const lines=[]; const tot=agg(data);
+  const unitName={"1":"","1000":" (천)","1000000":" (백만)","100000000":" (억)"}[$("unit").value];
+  lines.push("[비용율 분석 요약]"+unitName);
+  lines.push(`기준: 비용율 상승 ${(+$("thr").value||0)}%p 초과 / 최소 매출 ${$("minSales").value||0}`);
+  lines.push(`전체: 매출 ${fmt(tot.ps)} → ${fmt(tot.ns)} (${sg(tot.gSales)}), 비용율 ${pct(tot.pRate)} → ${pct(tot.nRate)} (${pp(tot.dRate)})`+(hasCM?`, CM ${fmt(tot.pm)} → ${fmt(tot.nm)} (${sfmt(tot.dCM)})`:"")+` → ${V[tot.v].t}`);
+  if(hasCM) lines.push(`CM 분해: 매출효과 ${sfmt(tot.eSales)}, 비용율효과 ${sfmt(tot.eRate)}, 기타효과 ${sfmt(tot.eOther)}`);
+  levels.forEach((li,d)=>{
+    // aggregate at depth d across all paths
+    const m=new Map(); data.forEach(r=>{ const key=r.path.slice(0,d+1).join(" › "); if(!m.has(key)) m.set(key,[]); m.get(key).push(r); });
+    const list=[...m.entries()].map(([name,rs])=>Object.assign(agg(rs),{name}));
+    const bad=list.filter(a=>["big","prob","chk"].includes(a.v)).sort((x,y)=>(y.dRate*y.ns)-(x.dRate*x.ns)).slice(0,15);
+    lines.push(""); lines.push(`■ ${table.head[li]} 기준 (${list.length}개 중 문제 ${list.filter(a=>["big","prob","chk"].includes(a.v)).length}개, 비용 영향 큰 순)`);
+    if(!bad.length) lines.push("  문제 없음");
+    bad.forEach(a=>lines.push(`  ${V[a.v].t} ${a.name}: 매출 ${sg(a.gSales)}, 비용율 ${pct(a.pRate)}→${pct(a.nRate)} (${pp(a.dRate)})`+(hasCM?`, CM ${sfmt(a.dCM)}`:"")));
+  });
+  return lines.join("\n");
+}
+
+async function copy(t,msg){
+  try{ await navigator.clipboard.writeText(t); toast(msg||"복사했어요"); }
+  catch(e){ const ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand("copy"); toast(msg||"복사했어요");}catch(_){toast("복사 실패: 직접 선택해 주세요");} ta.remove(); }
+}
+
+function doParse(saved){
+  $("parseErr").textContent="";
+  try{
+    table=parse($("raw").value);
+    $("parseInfo").textContent=`${table.rows.length}줄 · 열 ${table.head.length}개 읽음`;
+    renderMapping(saved);
+    store("cc_raw",$("raw").value);
+    return true;
+  }catch(e){ $("parseErr").textContent=e.message; return false; }
+}
+function doRun(){
+  $("mapErr").textContent="";
+  try{
+    table=parse($("raw").value);
+    const cfg=readConfig();
+    data=build(cfg);
+    store("cc_cfg",cfg);
+    state.path=[]; state.filter="all"; state.q=""; $("search").value="";
+    render();
+    $("resCard").scrollIntoView({behavior:"smooth",block:"start"});
+  }catch(e){ $("mapErr").textContent=e.message; }
+}
+
+const SAMPLE=[
+"채널\t거래처\t전년 매출\t전년 비용\t계획 매출\t계획 비용\t전년 CM\t계획 CM",
+"온라인\t쿠팡\t12,400\t3,100\t13,800\t3,700\t3,050\t3,020",
+"\t네이버\t8,200\t1,640\t8,900\t1,690\t2,300\t2,520",
+"\t자사몰\t2,100\t320\t1,800\t340\t760\t610",
+"대형마트\t이마트\t15,600\t3,430\t14,900\t3,580\t3,900\t3,520",
+"\t홈플러스\t9,300\t2,050\t9,350\t2,000\t2,280\t2,330",
+"\t롯데마트\t6,700\t1,410\t6,100\t1,460\t1,600\t1,330",
+"편의점\tGS25\t5,400\t860\t6,200\t1,050\t1,520\t1,700",
+"\tCU\t5,900\t940\t6,300\t940\t1,640\t1,810",
+"\t세븐일레븐\t2,800\t450\t3,000\t520\t760\t770",
+"특판\t신규거래처\t0\t0\t900\t90\t0\t250",
+"\t종료거래처\t700\t60\t0\t0\t180\t0"
+].join("\n");
+
+// events
+$("btnParse").onclick=()=>doParse(null);
+$("btnSample").onclick=()=>{ $("raw").value=SAMPLE; if(doParse(null)) doRun(); };
+$("btnClear").onclick=()=>{ $("raw").value=""; store("cc_raw",null); store("cc_cfg",null); table=data=null; ["mapCard","resCard"].forEach(i=>$(i).classList.add("hidden")); $("parseInfo").textContent=""; toast("지웠어요"); };
+$("btnRun").onclick=doRun;
+["thr","minSales","unit"].forEach(id=>$(id).addEventListener("change",()=>{ if(data){ store("cc_cfg",readConfig()); render(); } }));
+$("search").addEventListener("input",e=>{ state.q=e.target.value; render(); });
+$("vchips").addEventListener("click",e=>{ const f=e.target.closest("[data-f]"); if(f){ state.filter=f.dataset.f; render(); } });
+$("crumbs").addEventListener("click",e=>{ const a=e.target.closest("[data-d]"); if(a){ state.path=state.path.slice(0,+a.dataset.d); state.filter="all"; render(); } });
+$("tbl").addEventListener("click",e=>{
+  const th=e.target.closest("th");
+  if(th){ const k=th.dataset.k; state.sort = state.sort.k===k? {k,dir:-state.sort.dir} : {k,dir:k==="name"?1:-1}; render(); return; }
+  const tr=e.target.closest("tr[data-n]");
+  if(tr && e.target.closest("td:first-child")){ state.path=state.path.concat([tr.dataset.n]); state.filter="all"; render(); }
+});
+$("btnCopyTable").onclick=()=>copy(tsv(),"표를 복사했어요 (엑셀에 붙여넣기)");
+$("btnCopySummary").onclick=()=>copy(summary(),"요약을 복사했어요 (디스코드에 붙여넣기)");
+$("btnCsv").onclick=()=>{
+  const csv="﻿"+tsv().split("\n").map(l=>l.split("\t").map(c=>/[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c).join(",")).join("\n");
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download="비용율분석.csv"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+};
+
+// restore
+const raw=load("cc_raw");
+if(raw){ $("raw").value=raw; const cfg=load("cc_cfg"); if(doParse(cfg) && cfg){ try{ data=build(cfg); render(); }catch(e){} } }
+})();
+</script>
+</body>
+</html>
