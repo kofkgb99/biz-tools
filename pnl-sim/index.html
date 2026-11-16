@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>채널 손익 Simulation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f3f4f6;--card:#fff;--ink:#1f2328;--muted:#5f6670;--line:#d6d9de;--head:#404040;--bar:#595959;--accent:#2f5597;--accent-bg:#ddebf7;--red:#c00000;--red-bg:#fde8e8;--warn:#9a5b00;--warn-bg:#fff4dc;--ok:#2e7d32;--ok-bg:#e8f4ea;--grid:#eceef1;--th:#595959;--thtxt:#fff;--orange:#f4b183;--lblue:#8faadc}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#15171a;--card:#1e2125;--ink:#e6e8eb;--muted:#9aa1ab;--line:#33373d;--head:#2a2d31;--bar:#3a3e44;--accent:#7ea6e6;--accent-bg:#22324a;--red:#ff7b7b;--red-bg:#3a2224;--warn:#e8b45a;--warn-bg:#352a17;--ok:#7cc884;--ok-bg:#1d3121;--grid:#2a2e33;--th:#3a3e44;--thtxt:#e6e8eb;--orange:#e39a6a;--lblue:#6f8fc8}}
+:root[data-theme="dark"]{--bg:#15171a;--card:#1e2125;--ink:#e6e8eb;--muted:#9aa1ab;--line:#33373d;--head:#2a2d31;--bar:#3a3e44;--accent:#7ea6e6;--accent-bg:#22324a;--red:#ff7b7b;--red-bg:#3a2224;--warn:#e8b45a;--warn-bg:#352a17;--ok:#7cc884;--ok-bg:#1d3121;--grid:#2a2e33;--th:#3a3e44;--thtxt:#e6e8eb;--orange:#e39a6a;--lblue:#6f8fc8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.5 "Malgun Gothic","맑은 고딕",system-ui,sans-serif}
+.top{display:flex;gap:6px;padding:14px 16px 0;max-width:1440px;margin:0 auto}
+.top .sec{background:var(--head);color:#fff;font-weight:700;font-size:16px;padding:9px 16px;white-space:nowrap}
+.top .ttl{background:var(--bar);color:#fff;font-weight:700;font-size:16px;padding:9px 16px;flex:1;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.top .ttl small{font-weight:400;font-size:12px;opacity:.8}
+nav{max-width:1440px;margin:10px auto 0;padding:0 16px;display:flex;gap:4px;flex-wrap:wrap;border-bottom:2px solid var(--head)}
+nav button{font:inherit;border:0;background:var(--grid);color:var(--ink);padding:8px 16px;cursor:pointer;border-radius:3px 3px 0 0}
+nav button.on{background:var(--head);color:#fff;font-weight:700}
+nav button .bd{display:inline-block;margin-left:6px;background:var(--red);color:#fff;border-radius:9px;padding:0 6px;font-size:11px}
+main{max-width:1440px;margin:0 auto;padding:14px 16px 40px}
+.pane{display:none}.pane.on{display:block}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);padding:14px;min-width:0}
+.card h2{font-size:14px;margin:0 0 10px}
+.card h2 small{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
+.box{border:1.5px solid var(--bar);background:var(--card);padding:10px 14px;margin-bottom:12px;font-weight:700}
+.box div{margin:2px 0}
+.drop{display:block;border:2px dashed var(--line);padding:18px;text-align:center;color:var(--muted);cursor:pointer}
+.drop:hover,.drop.over{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
+.drop input{display:none}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{font-size:11.5px;padding:2px 8px;border-radius:10px;background:var(--grid);color:var(--muted)}
+.chip.ok{background:var(--ok-bg);color:var(--ok)}.chip.no{background:var(--red-bg);color:var(--red)}
+label.f{display:inline-flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+input,select{font:inherit;padding:5px 7px;border:1px solid var(--line);border-radius:3px;background:var(--card);color:var(--ink)}
+button.b{font:inherit;border:0;border-radius:3px;padding:7px 14px;cursor:pointer;background:var(--accent);color:#fff}
+button.s{font:inherit;border:1px solid var(--line);border-radius:3px;padding:6px 12px;cursor:pointer;background:var(--card);color:var(--ink)}
+button.x{font:inherit;border:0;background:none;color:var(--red);cursor:pointer;padding:2px 6px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.help{font-size:12px;color:var(--muted);line-height:1.6;margin-top:8px}
+.sub{font-weight:700;margin:16px 0 6px;font-size:13.5px}
+.tw{overflow:auto;border:1px solid var(--line);background:var(--card);max-height:70vh}
+table{border-collapse:collapse;width:100%;font-size:12px}
+th{background:var(--th);color:var(--thtxt);font-weight:700;padding:6px 8px;white-space:nowrap;position:sticky;top:0;z-index:1;cursor:pointer}
+td{padding:5px 8px;border-bottom:1px dotted var(--line);white-space:nowrap}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr.tot td{font-weight:700;background:var(--accent-bg);position:sticky;bottom:0}
+td.hl{background:var(--accent-bg);font-weight:700}
+.neg{color:var(--red)}.pos{color:var(--accent)}.muted{color:var(--muted)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:12px 0}
+.kpi{background:var(--card);border:1px solid var(--line);padding:9px 12px}
+.kpi small{color:var(--muted);font-size:11.5px}
+.kpi b{display:block;font-size:19px;margin-top:2px;font-variant-numeric:tabular-nums}
+.kpi em{font-style:normal;font-size:12px;color:var(--muted)}
+.kpi.cm{border:1.5px solid var(--accent);background:var(--accent-bg)}
+.toolbar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin:6px 0 10px}
+.toolbar .sp{flex:1}
+.warn{background:var(--warn-bg);border:1px solid var(--line);padding:10px 14px;margin-bottom:12px}
+.warn h3{margin:0 0 4px;font-size:13px;color:var(--warn)}
+.warn details{margin:2px 0}.warn summary{cursor:pointer}
+.warn ul{margin:4px 0 6px 18px;padding:0;max-height:160px;overflow:auto;font-size:12px}
+.okbox{background:var(--ok-bg);color:var(--ok);padding:8px 14px;margin-bottom:12px;border:1px solid var(--line)}
+svg{display:block;width:100%;height:auto}
+svg text{font-size:11px;fill:var(--muted);font-family:inherit}
+.lg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-top:4px}
+.lg span{display:inline-flex;align-items:center;gap:5px}
+.lg i{width:12px;height:4px;display:inline-block}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+.ed td input,.ed td select{width:100%;min-width:60px;padding:3px 5px}
+footer{text-align:center;color:var(--muted);font-size:11px;padding:16px}
+@media (max-width:640px){.top{flex-direction:column}.top .sec,.top .ttl{font-size:14px}}
+</style>
+</head>
+<body>
+<div class="top"><div class="sec">TM실</div><div class="ttl">채널 손익 Simulation <small>매입 로우 → 매출 · DC · 장려금 · 판관비 · CM 일자별 산출 | 모든 계산은 이 브라우저 안에서만 (외부 전송 없음)</small></div></div>
+<nav id="nav">
+  <button data-p="up" class="on">① 업로드 · 설정</button>
+  <button data-p="dash">② 대시보드</button>
+  <button data-p="det">③ 상세표</button>
+  <button data-p="rule">④ 계약조건 <span id="ruleBd"></span></button>
+</nav>
+<main>
+<!-- ① 업로드 -->
+<section class="pane on" id="p-up">
+  <div class="grid">
+    <div class="card">
+      <h2>1. 기준 파일 <small>거래조건 · 비용배부분류 · 제품분류 · 기준정보</small></h2>
+      <label class="drop" id="dRef"><input type="file" id="fRef" accept=".xlsx,.xlsm,.xlsb,.xls">여기로 끌어놓거나 클릭</label>
+      <div class="chips" id="refChips"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="s" id="btnTpl">📄 빈 양식 받기</button>
+        <button class="s" id="btnForget">🗑 저장된 기준 지우기</button>
+      </div>
+      <div class="help" id="refMsg">기준 파일은 이 브라우저에 저장돼서 다음부턴 매입 로우만 올리면 돼요.</div>
+    </div>
+    <div class="card">
+      <h2>2. 매입 로우 <small>여러 파일 가능</small></h2>
+      <label class="drop" id="dRaw"><input type="file" id="fRaw" accept=".xlsx,.xlsm,.xlsb,.xls,.csv" multiple>여기로 끌어놓거나 클릭</label>
+      <div class="chips" id="rawChips"></div>
+      <div class="help">머리글: 채널 · 일자 · 제품코드 · 제품명 · 카테고리명 · 전환유형명 · EDI수량 · 전환수량 · 매입금액<br>일자별 가로형(“01일 납품금액” 열) 원본도 읽어요.</div>
+    </div>
+    <div class="card">
+      <h2>3. 기간 설정</h2>
+      <div class="row">
+        <label class="f">기준월<input type="month" id="ym"></label>
+        <label class="f">채널 없을 때 기본 채널<input type="text" id="defCh" placeholder="예: 쿠팡" style="width:140px"></label>
+      </div>
+      <div class="help">월 고정금액은 <b>경과일 ÷ 월일수</b>로 일할한 뒤 매입비중으로 배분해요. 경과일은 채널별 마지막 일자로 자동 설정 (수정 가능).</div>
+      <div id="days" class="row" style="margin-top:8px"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ② 대시보드 -->
+<section class="pane" id="p-dash"><div id="dash"><div class="empty">기준 파일과 매입 로우를 올리면 여기에 결과가 나와요.</div></div></section>
+
+<!-- ③ 상세표 -->
+<section class="pane" id="p-det"><div id="det"><div class="empty">계산 결과가 없어요.</div></div></section>
+
+<!-- ④ 계약조건 -->
+<section class="pane" id="p-rule">
+  <div class="box">
+    <div>○ 기준 파일 「거래조건」 위에 화면에서 조건을 더하거나 끌 수 있어요 (엑셀은 그대로)</div>
+    <div>○ 바뀐 조건은 바로 재계산되고, 이 브라우저에 저장돼요</div>
+  </div>
+  <div class="sub">[1. 채널별 계산 규칙]</div>
+  <div class="tw"><table class="ed" id="chRules"></table></div>
+  <div class="help">물류비 대상: <b>직납만</b> = 전환유형명 “직납-전환대상아님” 행만 / <b>전체</b> = 모든 행. 과세 ×1.1 = 면과세가 “과세”인 제품의 물류비·우유 장려금율에 1.1 곱함. 카테고리명 대체 = 판관비분류로 율이 없으면 로우 카테고리명으로 찾음.</div>
+  <div class="sub">[2. 추가 계약조건] <button class="s" id="addRule" style="margin-left:8px">+ 조건 추가</button></div>
+  <div class="tw"><table class="ed" id="exRules"></table></div>
+  <div class="help">기준: <b>매입금액 %</b> · <b>매출(출고가) %</b> = 해당 행 금액 × 율 / <b>월 고정금액</b> = 금액 × 경과일 ÷ 월일수, 대상 안에서 매입비중으로 배분. 대상을 비우면 그 채널 전체. 채널을 비우면 전 채널 공통.<br>예) 쿠팡 계약비용 25% → 39% : 「판관비 · 매입금액 % · 14%」 한 줄 추가 (기존 25%는 거래조건에 그대로)</div>
+  <div class="sub">[3. 거래조건 항목 끄기] <small class="muted">기준 파일에서 읽은 항목 중 계산에서 뺄 것</small></div>
+  <div id="offList" class="help"></div>
+</section>
+</main>
+<footer>출고가 · 변동원가 · 운송비 = 기준정보 / 율 · 금액 = 거래조건 + 추가 계약조건</footer>
+
+<script>
+"use strict";
+/* ===== 유틸 ===== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const norm = v => v == null ? "" : String(v).replace(/\s+/g, "").replace(/代/g, "대");
+const chKey = v => norm(v).replace(/^[A-Za-z]{1,3}\d{1,3}[.\-_)]/, "");   // "D1.농협" → "농협"
+const sameCh = (a, b) => { const x = norm(a), y = norm(b); return x === y || chKey(x) === chKey(y); };
+const code = v => { if (v == null) return ""; let s = String(v).trim(); if (/^\d+\.0+$/.test(s)) s = s.split(".")[0]; return s; };
+const num = v => typeof v === "number" && isFinite(v) ? v : (typeof v === "string" && v.trim() !== "" && isFinite(+v.replace(/[,%\s]/g, ""))) ? +v.replace(/[,%\s]/g, "") * (/%/.test(v) ? 0.01 : 1) : null;
+const blank = v => v == null || String(v).trim() === "";
+const mil = v => v == null || !isFinite(v) ? "-" : (v / 1e6).toLocaleString("ko-KR", {minimumFractionDigits: 1, maximumFractionDigits: 1});
+const won = v => v == null || !isFinite(v) ? "-" : Math.round(v).toLocaleString("ko-KR");
+const pct = (v, d = 1) => v == null || !isFinite(v) ? "-" : (v * 100).toFixed(d) + "%";
+const sgn = v => v < 0 ? "neg" : "";
+const C = l => XLSX.utils.decode_col(l);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("pnl_" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem("pnl_" + k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+  del(k) { try { localStorage.removeItem("pnl_" + k); } catch (e) {} }
+};
+function grid(ws) {
+  if (!ws || !ws["!ref"]) return [];
+  const r = XLSX.utils.decode_range(ws["!ref"]), out = [];
+  for (let R = r.s.r; R <= r.e.r; R++) {
+    const row = new Array(r.e.c + 1).fill(null); let any = false;
+    for (let c = r.s.c; c <= r.e.c; c++) { const x = ws[XLSX.utils.encode_cell({r: R, c})]; if (!x || x.t === "e" || x.t === "z") continue; row[c] = x.v; any = true; }
+    out[R] = any ? row : null;
+  }
+  return out;
+}
+const readFile = f => new Promise((ok, ng) => { const fr = new FileReader(); fr.onload = e => { try { ok(XLSX.read(new Uint8Array(e.target.result), {type: "array"})); } catch (err) { ng(err); } }; fr.onerror = ng; fr.readAsArrayBuffer(f); });
+const sheetOf = (wb, word, starts) => wb.SheetNames.find(s => starts ? norm(s).startsWith(word) : norm(s).includes(word));
+// 머리글 행 찾기: 정규식 목록이 모두 있는 첫 행(위 10행)
+function findHead(g, need) {
+  for (let i = 0; i < Math.min(g.length, 10); i++) {
+    const h = (g[i] || []).map(norm), ix = {}; let ok = true;
+    for (const [k, re, req] of need) { ix[k] = h.findIndex(v => re.test(v)); if (req && ix[k] < 0) ok = false; }
+    if (ok) return {row: i, ix};
+  }
+  return null;
+}
+
+/* ===== 상태 ===== */
+const ST = {ref: store.get("ref", null), raw: [], files: [], res: null, view: {ch: "전체", big: "전체", by: "ch", q: "", sort: null, dby: "code"}};
+const CFG = Object.assign({chRules: {}, extra: [], off: []}, store.get("cfg", {}));
+const saveCfg = () => store.set("cfg", CFG);
+
+/* ===== 기준 파일 ===== */
+function parseRef(wb) {
+  const ref = {found: {}, cost: {}, costCh: {}, prod: {}, base: {}, baseCh: {}, rate: [], dist: [], sku: [], channels: []};
+  const chs = new Set();
+  // 비용배부분류: 제품코드 · 장려금분배구분 · 판매비분배구분 (+채널)
+  let n = sheetOf(wb, "비용배부분류"); ref.found["비용배부분류"] = !!n;
+  if (n) {
+    const g = grid(wb.Sheets[n]);
+    const h = findHead(g, [["cd", /^(제품코드|제품번호|제품CODE)$/i, 1], ["j", /장려금.*(분배|분류)/, 1], ["p", /(판매비|판관비).*(분배|분류)/, 1], ["ch", /^채널$/]]);
+    const ix = h ? h.ix : {cd: C("C"), j: C("E"), p: C("F"), ch: -1}, st = h ? h.row + 1 : 0;
+    for (let i = st; i < g.length; i++) {
+      const r = g[i]; if (!r) continue; const k = code(r[ix.cd]); if (!k || !/\d/.test(k)) continue;
+      const v = {j: r[ix.j] ?? null, p: r[ix.p] ?? null}, ch = ix.ch >= 0 ? norm(r[ix.ch]) : "";
+      if (ch) ref.costCh[chKey(ch) + "|" + k] ??= v; else ref.cost[k] ??= v;
+    }
+  }
+  // 제품분류: 제품코드 · 대카테고리 · 소카테고리 · 세분류 (+제품명, 면과세). 없으면 옛 양식 A→D, J→K/L/M, O→Q
+  n = sheetOf(wb, "제품분류"); ref.found["제품분류"] = !!n;
+  if (n) {
+    const g = grid(wb.Sheets[n]);
+    const h = findHead(g, [["cd", /^(제품번호|제품코드|제품CODE)$/i, 1], ["big", /대카테고리|대분류/, 1], ["small", /소카테고리|소분류/, 1], ["evt", /세분류|행사분류/, 1], ["nm", /^(제품명|품명|name)$/i], ["tax", /면과세|과세구분/]]);
+    if (h) {
+      for (let i = h.row + 1; i < g.length; i++) {
+        const r = g[i]; if (!r) continue; const k = code(r[h.ix.cd]); if (!k || !/\d/.test(k) || ref.prod[k]) continue;
+        ref.prod[k] = {big: r[h.ix.big] ?? null, small: r[h.ix.small] ?? null, evt: r[h.ix.evt] ?? null, nm: h.ix.nm >= 0 ? r[h.ix.nm] : null, tax: h.ix.tax >= 0 ? r[h.ix.tax] : null};
+      }
+    } else for (const r of g) {
+      if (!r) continue;
+      const a = code(r[C("A")]); if (a && /\d/.test(a)) (ref.prod[a] ??= {}).evt ??= r[C("D")];
+      const j = code(r[C("J")]); if (j && /\d/.test(j)) { const p = ref.prod[j] ??= {}; p.big ??= r[C("L")]; p.small ??= r[C("M")]; p.nm ??= r[C("K")]; }
+      const o = code(r[C("O")]); if (o && /\d/.test(o) && !blank(r[C("Q")])) (ref.prod[o] ??= {}).tax ??= String(r[C("Q")]).trim();
+    }
+  }
+  // 기준정보: 제품코드 · 출고가 · 변동원가 · 운송비 (+채널, 면과세)
+  n = sheetOf(wb, "기준정보", true); ref.found["기준정보"] = !!n;
+  if (n) {
+    const g = grid(wb.Sheets[n]);
+    const h = findHead(g, [["cd", /^(제품CODE|제품코드|제품번호|자재|자재코드|자재번호)$/i, 1], ["out", /출고가|공장도가/, 1], ["vc", /변동/, 1], ["tr", /운송비|물류비/, 1], ["ch", /^채널$/], ["tax", /^(면과세|과세구분|면세구분)$/]]);
+    const ix = h ? h.ix : {cd: C("A"), out: C("C"), vc: C("D"), tr: C("E"), ch: -1, tax: -1}, st = h ? h.row + 1 : 0;
+    for (let i = st; i < g.length; i++) {
+      const r = g[i]; if (!r) continue; const k = code(r[ix.cd]); if (!k || !/\d/.test(k)) continue;
+      const v = {out: num(r[ix.out]), vc: num(r[ix.vc]), tr: num(r[ix.tr])}, ch = ix.ch >= 0 ? norm(r[ix.ch]) : "";
+      if (ix.tax >= 0 && /^(과세|면세)$/.test(String(r[ix.tax] ?? "").trim())) (ref.prod[k] ??= {}).taxB ??= String(r[ix.tax]).trim();
+      if (ch) ref.baseCh[chKey(ch) + "|" + k] ??= v; else ref.base[k] ??= v;
+    }
+  }
+  // 거래조건 (열 위치 고정 3개 표)
+  n = sheetOf(wb, "거래조건"); ref.found["거래조건"] = !!n;
+  if (n) {
+    for (const r of grid(wb.Sheets[n])) {
+      if (!r) continue;
+      // ① 율: B 채널 · D 카테고리 · E 항목 · F 구분자 · G 율
+      const fk = r[C("F")] ?? (!blank(r[C("D")]) && !blank(r[C("E")]) ? String(r[C("D")]) + r[C("E")] : null), gv = num(r[C("G")]);
+      if (fk != null && gv != null && norm(fk) !== "구분자") { ref.rate.push({ch: norm(r[C("B")]), key: norm(fk), v: gv, cat: r[C("D")], item: r[C("E")]}); if (!blank(r[C("B")])) chs.add(String(r[C("B")]).trim()); }
+      // ② 분배: M 채널 · O 카테고리 · P 항목 · Q 시트적용 · R 구분자 · S 율/금액 · W 월금액
+      const rk = r[C("R")] ?? (!blank(r[C("O")]) && !blank(r[C("Q")]) ? String(r[C("O")]) + r[C("Q")] : null);
+      if (rk != null && norm(rk) !== "구분자") { const s = num(r[C("S")]), w = num(r[C("W")]); if (s != null || w != null) { ref.dist.push({ch: norm(r[C("M")]), key: norm(rk), s, w, cat: r[C("O")], item: r[C("P")] ?? r[C("Q")]}); if (!blank(r[C("M")])) chs.add(String(r[C("M")]).trim()); } }
+      // ③ SKU: Z 채널 · AA SKU · AC 항목 · AD 시트적용 · AE 구분자 · AF 율/금액 · AJ 월금액
+      const ak = r[C("AE")] ?? (!blank(r[C("AA")]) && !blank(r[C("AD")]) ? code(r[C("AA")]) + r[C("AD")] : null);
+      if (ak != null && norm(ak) !== "구분자") { const s = num(r[C("AF")]), w = num(r[C("AJ")]); if (s != null || w != null) { ref.sku.push({ch: norm(r[C("Z")]), key: norm(ak), s, w, cat: r[C("AA")], item: r[C("AC")] ?? r[C("AD")]}); if (!blank(r[C("Z")])) chs.add(String(r[C("Z")]).trim()); } }
+    }
+  }
+  ref.channels = [...chs];
+  return ref;
+}
+
+/* ===== 매입 로우 ===== */
+function parseRaw(wb, fname) {
+  const sn = wb.SheetNames.find(s => /raw|로우/i.test(s)) || wb.SheetNames[0];
+  const g = grid(wb.Sheets[sn]);
+  let hr = -1;
+  for (let i = 0; i < Math.min(g.length, 15); i++) { const r = g[i]; if (r && r.some(v => norm(v) === "제품코드") && r.some(v => /^(매입금액|EDI수량|전환수량)$/.test(norm(v)) || /\d+일납품금액$/.test(norm(v)))) { hr = i; break; } }
+  if (hr < 0) throw new Error(`[${fname}] 머리글 행을 못 찾았어요 (제품코드 + 매입금액/EDI수량 필요)`);
+  const H = g[hr].map(norm), idx = nm => H.indexOf(norm(nm));
+  const conv = H.reduce((a, v, i) => v === "전환수량" ? a.concat(i) : a, []);
+  const ix = {ch: idx("채널"), day: idx("일자"), tyn: idx("전환유형명"), catn: idx("카테고리명"), code: idx("제품코드"), name: idx("제품명"),
+    fac: conv.length > 1 ? conv[0] : -1, qty: conv.length ? conv[conv.length - 1] : -1, ediq: idx("EDI수량"), amt: idx("매입금액")};
+  const get = (r, k) => ix[k] >= 0 ? r[ix[k]] : null;
+  const base = r => ({ch: blank(get(r, "ch")) ? "" : String(get(r, "ch")).trim(), tyn: blank(get(r, "tyn")) ? "" : String(get(r, "tyn")).trim(), catn: get(r, "catn"), code: code(get(r, "code")), name: get(r, "name"), file: fname});
+  const rows = []; let skip = 0;
+  // 가로형: "01일EDI납품수량 / 01일납품수량 / 01일납품금액"
+  const dayCols = re => { const m = {}; H.forEach((v, i) => { const x = re.exec(v); if (x) m[+x[1]] = i; }); return m; };
+  const wE = dayCols(/^(\d{1,2})일EDI납품수량$/), wQ = dayCols(/^(\d{1,2})일납품수량$/), wA = dayCols(/^(\d{1,2})일납품금액$/);
+  if (Object.keys(wA).length) {
+    const days = [...new Set([...Object.keys(wE), ...Object.keys(wQ), ...Object.keys(wA)].map(Number))].sort((a, b) => a - b);
+    for (let i = hr + 1; i < g.length; i++) {
+      const r = g[i]; if (!r) continue; const b = base(r); if (!b.code) { skip++; continue; }
+      const fac = (conv.length ? num(r[conv[0]]) : null) || 1;
+      for (const d of days) {
+        const e = wE[d] != null ? num(r[wE[d]]) : null, q0 = wQ[d] != null ? num(r[wQ[d]]) : null, amt = wA[d] != null ? num(r[wA[d]]) ?? 0 : 0;
+        const qty = q0 ?? (e != null ? e * fac : 0);
+        if (!e && !qty && !amt) continue;
+        rows.push({...b, day: d, qty, amt});
+      }
+    }
+  } else {
+    for (let i = hr + 1; i < g.length; i++) {
+      const r = g[i]; if (!r) continue; const b = base(r); if (!b.code) { if (r.some(v => !blank(v))) skip++; continue; }
+      const e = num(get(r, "ediq")), fac = num(get(r, "fac")) ?? 1;
+      let qty = num(get(r, "qty")); if (qty == null && e != null) qty = e * fac;
+      const d = parseDate(get(r, "day"));
+      rows.push({...b, day: d.d, ym: d.ym, qty: qty ?? 0, amt: num(get(r, "amt")) ?? 0});
+    }
+  }
+  return {rows, skip};
+}
+function parseDate(v) {
+  const p2 = n => String(n).padStart(2, "0");
+  const mk = (y, m, d) => m >= 1 && m <= 12 && d >= 1 && d <= 31 ? {d, ym: `${y}-${p2(m)}`} : {d: null, ym: null};
+  if (v == null || v === "") return {d: null, ym: null};
+  if (typeof v === "number") {
+    if (v >= 19000101 && v <= 21001231) return mk(Math.floor(v / 1e4), Math.floor(v / 100) % 100, v % 100);
+    if (v > 31) { const o = XLSX.SSF.parse_date_code(v); return o ? mk(o.y, o.m, o.d) : {d: null, ym: null}; }
+    return {d: v, ym: null};
+  }
+  const s = String(v).trim(); let m;
+  if ((m = s.match(/(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})/))) return mk(+m[1], +m[2], +m[3]);
+  if ((m = s.match(/^(\d{4})(\d{2})(\d{2})$/))) return mk(+m[1], +m[2], +m[3]);
+  if ((m = s.match(/^(\d{1,2})\s*일?$/))) return {d: +m[1], ym: null};
+  return {d: null, ym: null};
+}
+
+/* ===== 채널 규칙 ===== */
+const CVS = ["CU", "GS25", "GS", "세븐", "세븐일레븐", "이마트24"].map(norm);
+function chRule(ch) {
+  const k = chKey(ch);
+  if (!CFG.chRules[k]) {
+    const nh = k.includes("농협"), cvs = CVS.includes(k);
+    CFG.chRules[k] = {log: nh || cvs ? "all" : "direct", tax: nh, fb: nh, days: null};
+  }
+  return CFG.chRules[k];
+}
+
+/* ===== 계산 ===== */
+const K = {jPct: "장려금_분배기준(%)", jAmt: "장려금_분배기준", sPct: "장려금_SKU기준(%)", sAmt: "장려금_SKU기준(금액)", log: "물류비", fee: "대수수료", pDist: "판관비_분배", pSku: "판관비_SKU"};
+const NUMK = ["qty", "amt", "sales", "dc", "jPct", "jAmt", "sPct", "sAmt", "jEx", "jTot", "log", "fee", "pDist", "pSku", "pEx", "pTot", "cost", "vc", "tr", "cm"];
+function compute() {
+  const ref = ST.ref; if (!ref || !ST.raw.length) return null;
+  const [Y, M] = ($("#ym").value || "").split("-").map(Number);
+  const mdays = Y && M ? new Date(Y, M, 0).getDate() : 31;
+  const defCh = $("#defCh").value.trim();
+  const off = new Set(CFG.off);
+  const W = {out: new Map(), vc: new Map(), tr: new Map(), cls: new Map(), neg: new Map(), noDay: 0, noMonth: new Set()};
+  const rows = ST.raw.map(r => ({...r, ch: r.ch || defCh || "(채널없음)"}));
+  const chs = [...new Set(rows.map(r => r.ch))];
+  const pr = {};
+  for (const ch of chs) { const rl = chRule(ch); const auto = Math.max(0, ...rows.filter(r => r.ch === ch).map(r => r.day || 0)); const d = rl.days || auto; pr[ch] = {days: d, auto, f: d > 0 ? Math.min(1, d / mdays) : 1}; }
+  const chOk = (e, ch) => !e.ch || sameCh(e.ch, ch);
+  const live = (tbl, e) => !off.has(tbl + "|" + e.ch + "|" + e.key);
+  const has = (list, tbl, ch, key) => list.some(e => e.key === key && chOk(e, ch) && live(tbl, e));
+  const rateOf = (list, tbl, ch, key) => { const e = list.find(x => x.key === key && chOk(x, ch) && live(tbl, x)); return e ? (e.v ?? e.s ?? 0) : 0; };
+  const amtOf = (list, tbl, ch, key) => { let t = 0; for (const e of list) if (e.key === key && chOk(e, ch) && live(tbl, e)) { if (e.w != null) t += e.w * pr[ch].f; else { t += e.s || 0; W.noMonth.add(e.key); } } return t; };
+  // 행 기초값
+  for (const r of rows) {
+    const rl = chRule(r.ch), ck = chKey(r.ch) + "|" + r.code;
+    const cst = ref.costCh[ck] ?? ref.cost[r.code];
+    r.jCls = cst && !blank(cst.j) ? String(cst.j) : (r.catn ?? "");
+    r.pCls = cst && !blank(cst.p) ? String(cst.p) : (r.catn ?? "");
+    const p = ref.prod[r.code] || {};
+    r.big = blank(p.big) ? "(미분류)" : String(p.big); r.small = blank(p.small) ? "(미분류)" : String(p.small); r.evt = blank(p.evt) ? "" : String(p.evt);
+    if (!r.name && p.nm) r.name = p.nm;
+    if (r.big === "(미분류)") W.cls.set(r.code, r.name);
+    r.tax = p.taxB ?? p.tax ?? null; r.taxF = rl.tax && norm(r.tax) === "과세" ? 1.1 : 1;
+    const bc = ref.baseCh[ck] || {}, bb = ref.base[r.code] || {};
+    let ba = {}; if (bb.out == null && bc.out == null) for (const k in ref.baseCh) if (k.endsWith("|" + r.code)) { ba = ref.baseCh[k]; break; }
+    r.outP = bc.out ?? bb.out ?? ba.out ?? null; r.vcU = bc.vc ?? bb.vc ?? ba.vc ?? null; r.trU = bc.tr ?? bb.tr ?? null;
+    const tag = () => `${r.name ?? ""} [${r.ch}]`;
+    if (r.outP == null) W.out.set(r.code, tag()); if (r.vcU == null) W.vc.set(r.code, tag()); if (r.trU == null) W.tr.set(r.code, tag());
+    r.inP = r.big === "단산" ? 0 : (r.qty ? r.amt / r.qty : 0);
+    r.sales = (r.outP ?? 0) * r.qty;
+    r.dc = r.outP == null ? 0 : (r.outP - r.inP) * r.qty;
+    if (r.outP != null && r.qty > 0 && r.inP > r.outP) W.neg.set(r.code, `${r.name ?? ""} (매입단가 ${won(r.inP)} > 출고가 ${won(r.outP)})`);
+    if (r.day == null) W.noDay++;
+  }
+  // 채널 내 비중
+  const sumBy = f => { const m = new Map(); for (const r of rows) { const k = r.ch + "\u0001" + f(r); m.set(k, (m.get(k) || 0) + r.amt); } return m; };
+  const sCode = sumBy(r => r.code), sJ = sumBy(r => r.jCls), sP = sumBy(r => r.pCls);
+  const ratio = (m, r, k) => { const t = m.get(r.ch + "\u0001" + k); return t ? r.amt / t : 0; };
+  // 추가 계약조건 준비 (월 고정금액은 대상 안 매입비중)
+  const ex = CFG.extra.filter(e => e.on !== false && exVal(e) != null);
+  const exHit = exHitR;
+  const exBase = ex.map(e => e.base === "fix" ? rows.filter(r => exHit(e, r)).reduce((s, r) => s + r.amt, 0) : 0);
+  for (const r of rows) {
+    const rl = chRule(r.ch);
+    r.skuR = ratio(sCode, r, r.code); r.catJ = ratio(sJ, r, r.jCls); r.catP = ratio(sP, r, r.pCls);
+    const jc = norm(r.jCls), pc = norm(r.pCls), cd = norm(r.code);
+    r.jPct = rateOf(ref.dist, "dist", r.ch, jc + norm(K.jPct)) * r.amt * (jc === "우유" ? r.taxF : 1);
+    r.jAmt = amtOf(ref.dist, "dist", r.ch, jc + norm(K.jAmt)) * r.catJ;
+    r.sPct = rateOf(ref.sku, "sku", r.ch, cd + norm(K.sPct)) * r.amt;
+    r.sAmt = amtOf(ref.sku, "sku", r.ch, cd + norm(K.sAmt)) * r.skuR;
+    const k1 = pc + norm(K.log), k2 = norm(r.catn) + norm(K.log);
+    const logR = has(ref.rate, "rate", r.ch, k1) ? rateOf(ref.rate, "rate", r.ch, k1) : (rl.fb && r.catn ? rateOf(ref.rate, "rate", r.ch, k2) : 0);
+    r.log = rl.log === "none" ? 0 : rl.log === "all" || norm(r.tyn) === norm("직납-전환대상아님") ? logR * r.amt * r.taxF : 0;
+    r.fee = norm(r.tyn) === norm("도매위탁전환대상") ? rateOf(ref.rate, "rate", r.ch, pc + norm(K.fee)) * r.amt : 0;
+    r.pDist = amtOf(ref.dist, "dist", r.ch, pc + norm(K.pDist)) * r.catP;
+    r.pSku = amtOf(ref.sku, "sku", r.ch, cd + norm(K.pSku)) * r.skuR;
+    r.jEx = 0; r.pEx = 0;
+    ex.forEach((e, i) => {
+      if (!exHit(e, r)) return;
+      const v = exVal(e), x = e.base === "amt" ? v * r.amt : e.base === "sales" ? v * r.sales : (exBase[i] ? v * pr[r.ch].f * r.amt / exBase[i] : 0);
+      if (e.grp === "j") r.jEx += x; else r.pEx += x;
+    });
+    r.jTot = r.jPct + r.jAmt + r.sPct + r.sAmt + r.jEx;
+    r.pTot = r.log + r.fee + r.pDist + r.pSku + r.pEx;
+    r.cost = r.dc + r.jTot + r.pTot;
+    r.vc = (r.vcU ?? 0) * r.qty; r.tr = (r.trU ?? 0) * r.qty;
+    r.cm = r.sales - r.cost - r.vc - r.tr;
+  }
+  return {rows, chs, mdays, pr, W};
+}
+function agg(rows, keyFn, lab) {
+  const m = new Map();
+  for (const r of rows) { const k = keyFn(r); let a = m.get(k); if (!a) { a = {key: k, ...lab(r)}; NUMK.forEach(n => a[n] = 0); m.set(k, a); } NUMK.forEach(n => a[n] += r[n] || 0); }
+  return [...m.values()].map(fin);
+}
+function fin(a) { const s = a.sales; a.dcR = s ? a.dc / s : null; a.jR = s ? a.jTot / s : null; a.pR = s ? a.pTot / s : null; a.costR = s ? a.cost / s : null; a.cmR = s ? a.cm / s : null; a.asp = a.qty ? a.amt / a.qty : null; return a; }
+function total(rows) { const a = {key: "합계"}; NUMK.forEach(n => a[n] = rows.reduce((s, r) => s + (r[n] || 0), 0)); return fin(a); }
+
+/* ===== 렌더: 업로드 ===== */
+function refChips() {
+  const el = $("#refChips"); if (!ST.ref) { el.innerHTML = ""; return; }
+  const f = ST.ref.found;
+  el.innerHTML = ["거래조건", "비용배부분류", "제품분류", "기준정보"].map(s => `<span class="chip ${f[s] ? "ok" : "no"}">${f[s] ? "✓" : "✕"} ${s}</span>`).join("") +
+    `<span class="chip">제품 ${Object.keys(ST.ref.prod).length} · 율 ${ST.ref.rate.length} · 분배 ${ST.ref.dist.length} · SKU ${ST.ref.sku.length}</span>`;
+}
+function rawChips() {
+  $("#rawChips").innerHTML = ST.files.map(f => `<span class="chip ${f.err ? "no" : "ok"}">${esc(f.name)} ${f.err ? "— " + esc(f.err) : `${f.n.toLocaleString()}행${f.skip ? ` (코드없음 ${f.skip} 제외)` : ""}`}</span>`).join("");
+}
+function renderDays() {
+  const R = ST.res; const el = $("#days");
+  if (!R) { el.innerHTML = ""; return; }
+  el.innerHTML = R.chs.map(ch => `<label class="f">${esc(ch)} 경과일<input type="number" min="1" max="31" data-ch="${esc(ch)}" value="${R.pr[ch].days}" style="width:80px"></label>`).join("") + `<span class="muted" style="font-size:12px">월일수 ${R.mdays}일</span>`;
+  el.querySelectorAll("input").forEach(i => i.onchange = () => { const rl = chRule(i.dataset.ch), v = +i.value; rl.days = v > 0 && v !== R.pr[i.dataset.ch].auto ? v : null; saveCfg(); run(); });
+}
+
+/* ===== 렌더: 대시보드 ===== */
+function filtered() {
+  const v = ST.view; return ST.res.rows.filter(r => (v.ch === "전체" || r.ch === v.ch) && (v.big === "전체" || r.big === v.big));
+}
+const opt = (list, cur) => ["전체", ...list].map(x => `<option${x === cur ? " selected" : ""}>${esc(x)}</option>`).join("");
+function warnHtml(W) {
+  const it = [];
+  const li = (m, t, why) => { if (m.size) it.push(`<details><summary><b>${t}</b> ${m.size}개 — ${why}</summary><ul>${[...m].slice(0, 300).map(([k, v]) => `<li>${esc(k)} ${esc(v ?? "")}</li>`).join("")}</ul></details>`); };
+  li(W.out, "출고가 없음", "매출·DC가 0으로 계산됨 (기준정보 확인)");
+  li(W.vc, "변동원가 없음", "원가 0으로 계산됨");
+  li(W.tr, "운송비 없음", "운송비 0으로 계산됨");
+  li(W.cls, "제품분류 없음", "(미분류)로 집계됨");
+  li(W.neg, "매입단가 > 출고가", "DC가 마이너스");
+  if (W.noDay) it.push(`<div><b>일자 없는 행</b> ${W.noDay}개 — 일자별 추이에서 빠짐</div>`);
+  if (W.noMonth.size) it.push(`<div><b>월금액 없이 영업일수 금액만 있는 조건</b> ${W.noMonth.size}개 — 일할 없이 그대로 반영</div>`);
+  return it.length ? `<div class="warn"><h3>⚠ 기준정보 점검</h3>${it.join("")}</div>` : `<div class="okbox">✓ 기준정보 누락 없음</div>`;
+}
+function renderDash() {
+  const el = $("#dash"), R = ST.res;
+  if (!R) { el.innerHTML = `<div class="empty">기준 파일과 매입 로우를 올리면 여기에 결과가 나와요.</div>`; return; }
+  const v = ST.view, rows = filtered(), t = total(rows);
+  const bigs = [...new Set(R.rows.map(r => r.big))].sort();
+  const kpi = (l, val, rt, cls = "") => `<div class="kpi ${cls}"><small>${l}</small><b class="${sgn(val)}">${mil(val)}</b><em>${rt ?? ""}</em></div>`;
+  const by = v.by === "ch" ? agg(rows, r => r.ch, r => ({lab: r.ch})) : v.by === "big" ? agg(rows, r => r.big, r => ({lab: r.big})) : agg(rows, r => r.big + "|" + r.small, r => ({lab: r.big + " · " + r.small}));
+  by.sort((a, b) => b.sales - a.sales);
+  const tr = a => `<tr${a.key === "합계" ? ' class="tot"' : ""}><td>${esc(a.lab ?? a.key)}</td><td class="n">${mil(a.amt)}</td><td class="n">${mil(a.sales)}</td><td class="n">${mil(a.dc)}</td><td class="n">${pct(a.dcR)}</td><td class="n">${mil(a.jTot)}</td><td class="n">${mil(a.pTot)}</td><td class="n">${pct(a.costR)}</td><td class="n">${mil(a.vc + a.tr)}</td><td class="n hl ${sgn(a.cm)}">${mil(a.cm)}</td><td class="n hl ${sgn(a.cm)}">${pct(a.cmR)}</td><td class="n">${a.sales && t.sales ? pct(a.sales / t.sales) : "-"}</td></tr>`;
+  el.innerHTML = warnHtml(R.W) + `
+  <div class="toolbar">
+    <label class="f">채널<select id="vCh">${opt(R.chs, v.ch)}</select></label>
+    <label class="f">대카테고리<select id="vBig">${opt(bigs, v.big)}</select></label>
+    <span class="sp"></span>
+    <button class="s" id="btnDl">📥 엑셀로 받기</button>
+  </div>
+  <div class="box"><div>○ ${v.ch === "전체" ? "전 채널" : esc(v.ch)}${v.big === "전체" ? "" : " · " + esc(v.big)} : 매출 ${mil(t.sales)}백만, 비용율 ${pct(t.costR)} (DC ${pct(t.dcR)} · 장려금 ${pct(t.jR)} · 판관비 ${pct(t.pR)})</div><div>→ CM <span class="${t.cm < 0 ? "neg" : "pos"}">${mil(t.cm)}백만 (${pct(t.cmR)})</span> · 경과일 기준 월 환산 CM ${mil(monthly(rows, R))}백만</div></div>
+  <div class="kpis">
+    ${kpi("매입금액", t.amt, "백만원")}${kpi("총매출 (출고가)", t.sales, "백만원")}${kpi("DC", t.dc, pct(t.dcR))}${kpi("장려금", t.jTot, pct(t.jR))}${kpi("판관비", t.pTot, pct(t.pR))}${kpi("변동원가 + 운송비", t.vc + t.tr, pct(t.sales ? (t.vc + t.tr) / t.sales : null))}${kpi("공헌이익 (CM)", t.cm, pct(t.cmR), "cm")}
+  </div>
+  <div class="grid">
+    <div class="card"><h2>손익 구조 <small>백만원</small></h2>${bridge(t)}</div>
+    <div class="card"><h2>일자별 누적 <small>백만원</small></h2>${trend(rows, R)}</div>
+  </div>
+  <div class="sub" style="display:flex;align-items:center;gap:10px">[${v.by === "ch" ? "채널별" : v.by === "big" ? "대카테고리별" : "소카테고리별"} 손익] <select id="vBy"><option value="ch"${v.by === "ch" ? " selected" : ""}>채널별</option><option value="big"${v.by === "big" ? " selected" : ""}>대카테고리별</option><option value="small"${v.by === "small" ? " selected" : ""}>소카테고리별</option></select><small class="muted" style="font-weight:400">단위: 백만원</small></div>
+  <div class="tw"><table><thead><tr><th>구분</th><th class="n">매입금액</th><th class="n">총매출</th><th class="n">DC</th><th class="n">DC율</th><th class="n">장려금</th><th class="n">판관비</th><th class="n">비용율</th><th class="n">원가+운송</th><th class="n">CM</th><th class="n">CM율</th><th class="n">매출비중</th></tr></thead><tbody>${by.map(tr).join("")}${tr(t)}</tbody></table></div>`;
+  $("#vCh").onchange = e => { v.ch = e.target.value; renderDash(); };
+  $("#vBig").onchange = e => { v.big = e.target.value; renderDash(); };
+  $("#vBy").onchange = e => { v.by = e.target.value; renderDash(); };
+  $("#btnDl").onclick = download;
+}
+function monthly(rows, R) {   // 채널별 CM ÷ 경과비율
+  const m = new Map(); for (const r of rows) m.set(r.ch, (m.get(r.ch) || 0) + r.cm);
+  let s = 0; for (const [ch, v] of m) s += v / (R.pr[ch].f || 1); return s;
+}
+function bridge(t) {
+  const items = [["총매출", t.sales, "t"], ["DC", -t.dc], ["장려금", -t.jTot], ["판관비", -t.pTot], ["변동원가", -t.vc], ["운송비", -t.tr], ["CM", t.cm, "t"]];
+  const Wd = 560, H = 230, L = 10, B = 34, T = 18, bw = (Wd - L * 2) / items.length;
+  const mx = Math.max(t.sales, 1), mn = Math.min(0, t.cm), y = v => T + (H - T - B) * (mx - v) / (mx - mn);
+  let run = 0, out = "";
+  items.forEach(([n, v, k], i) => {
+    let a, b; if (k) { a = 0; b = v; run = v; } else { a = run; b = run + v; run = b; }
+    const top = y(Math.max(a, b)), h = Math.max(1, Math.abs(y(a) - y(b))), x = L + i * bw + bw * 0.18, w = bw * 0.64;
+    const col = k ? (n === "CM" ? "var(--accent)" : "var(--bar)") : "var(--orange)";
+    out += `<rect x="${x}" y="${top}" width="${w}" height="${h}" fill="${col}"/><text x="${x + w / 2}" y="${top - 4}" text-anchor="middle" style="fill:var(--ink);font-weight:700">${mil(Math.abs(v))}</text><text x="${x + w / 2}" y="${H - 14}" text-anchor="middle">${n}</text>`;
+  });
+  return `<svg viewBox="0 0 ${Wd} ${H}" role="img" aria-label="손익 구조"><line x1="0" x2="${Wd}" y1="${y(0)}" y2="${y(0)}" stroke="var(--line)"/>${out}</svg>`;
+}
+function trend(rows, R) {
+  const D = R.mdays, s = new Array(D).fill(0), c = new Array(D).fill(0);
+  for (const r of rows) if (r.day >= 1 && r.day <= D) { s[r.day - 1] += r.sales; c[r.day - 1] += r.cm; }
+  const last = Math.max(0, ...rows.map(r => r.day || 0));
+  if (!last) return `<div class="empty">일자 정보가 없어요.</div>`;
+  const cs = [], cc = []; let a = 0, b = 0; for (let i = 0; i < last; i++) { a += s[i]; b += c[i]; cs.push(a); cc.push(b); }
+  const Wd = 560, H = 230, L = 46, Rr = 10, T = 12, B = 26, mx = Math.max(...cs, 1), mn = Math.min(0, ...cc);
+  const x = i => L + (Wd - L - Rr) * (last > 1 ? i / (last - 1) : 0.5), y = v => T + (H - T - B) * (mx - v) / (mx - mn);
+  const path = arr => arr.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
+  let ax = ""; for (let k = 0; k <= 4; k++) { const v = mn + (mx - mn) * k / 4; ax += `<line x1="${L}" x2="${Wd - Rr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${(v / 1e6).toFixed(0)}</text>`; }
+  for (let i = 0; i < last; i += Math.max(1, Math.ceil(last / 10))) ax += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${i + 1}일</text>`;
+  const lab = (arr, col) => `<text x="${x(last - 1)}" y="${y(arr[last - 1]) - 6}" text-anchor="end" style="fill:${col};font-weight:700">${mil(arr[last - 1])}</text>`;
+  return `<svg viewBox="0 0 ${Wd} ${H}" role="img" aria-label="일자별 누적">${ax}<path d="${path(cs)}" fill="none" stroke="var(--bar)" stroke-width="2.25"/><path d="${path(cc)}" fill="none" stroke="var(--accent)" stroke-width="2.25"/>${lab(cs, "var(--bar)")}${lab(cc, "var(--accent)")}</svg><div class="lg"><span><i style="background:var(--bar)"></i>누적 매출</span><span><i style="background:var(--accent)"></i>누적 CM</span></div>`;
+}
+
+/* ===== 렌더: 상세표 ===== */
+const DCOLS = [["lab", "구분", 0], ["qty", "수량", "n"], ["asp", "매입단가", "w"], ["amt", "매입금액", "m"], ["sales", "총매출", "m"], ["dc", "DC", "m"], ["dcR", "DC율", "p"], ["jPct", "장려금 율", "m"], ["jAmt", "장려금 분배", "m"], ["sPct", "SKU 율", "m"], ["sAmt", "SKU 금액", "m"], ["jEx", "장려금 추가", "m"], ["log", "물류비", "m"], ["fee", "대수수료", "m"], ["pDist", "판관비 분배", "m"], ["pSku", "판관비 SKU", "m"], ["pEx", "판관비 추가", "m"], ["costR", "비용율", "p"], ["vc", "변동원가", "m"], ["tr", "운송비", "m"], ["cm", "CM", "m"], ["cmR", "CM율", "p"]];
+function renderDet() {
+  const el = $("#det"), R = ST.res;
+  if (!R) { el.innerHTML = `<div class="empty">계산 결과가 없어요.</div>`; return; }
+  const v = ST.view, rows = filtered();
+  const keyF = {code: r => r.ch + "|" + r.code, day: r => r.ch + "|" + (r.day ?? "-"), cls: r => r.ch + "|" + r.jCls + "|" + r.pCls};
+  const labF = {code: r => ({lab: `${r.code} ${r.name ?? ""}`, ch: r.ch, big: r.big}), day: r => ({lab: r.day ? r.day + "일" : "(일자없음)", ch: r.ch, d: r.day ?? 99}), cls: r => ({lab: `장려금 ${r.jCls} / 판관비 ${r.pCls}`, ch: r.ch})};
+  let list = agg(rows, keyF[v.dby], labF[v.dby]);
+  if (v.q) { const q = norm(v.q); list = list.filter(a => norm(a.lab).includes(q)); }
+  if (v.sort) { const [k, d] = v.sort; list.sort((a, b) => ((a[k] ?? -1e18) > (b[k] ?? -1e18) ? 1 : -1) * d); }
+  else if (v.dby === "day") list.sort((a, b) => a.ch.localeCompare(b.ch) || a.d - b.d); else list.sort((a, b) => b.sales - a.sales);
+  const t = total(list);
+  const f = (c, x) => c[2] === "m" ? mil(x) : c[2] === "p" ? pct(x) : c[2] === "w" ? won(x) : c[2] === "n" ? won(x) : esc(x);
+  const tr = (a, tot) => `<tr${tot ? ' class="tot"' : ""}><td>${tot ? "" : esc(a.ch)}</td>${DCOLS.map(c => `<td class="${c[2] ? "n" : ""} ${c[0] === "cm" || c[0] === "cmR" ? "hl " + sgn(a.cm) : ""}">${tot && c[0] === "lab" ? "합계" : f(c, a[c[0]])}</td>`).join("")}</tr>`;
+  el.innerHTML = `<div class="toolbar">
+    <label class="f">채널<select id="dCh">${opt(R.chs, v.ch)}</select></label>
+    <label class="f">보기<select id="dBy"><option value="code"${v.dby === "code" ? " selected" : ""}>제품별</option><option value="day"${v.dby === "day" ? " selected" : ""}>일자별</option><option value="cls"${v.dby === "cls" ? " selected" : ""}>비용분류별</option></select></label>
+    <label class="f">검색<input type="text" id="dQ" value="${esc(v.q)}" placeholder="코드·제품명" style="width:160px"></label>
+    <span class="sp"></span><span class="muted">${list.length.toLocaleString()}개 · 금액 백만원 · 머리글 클릭 정렬</span></div>
+  <div class="tw"><table><thead><tr><th>채널</th>${DCOLS.map(c => `<th class="${c[2] ? "n" : ""}" data-k="${c[0]}">${c[1]}${v.sort && v.sort[0] === c[0] ? (v.sort[1] > 0 ? " ▲" : " ▼") : ""}</th>`).join("")}</tr></thead><tbody>${list.slice(0, 2000).map(a => tr(a)).join("")}${tr(t, 1)}</tbody></table></div>`;
+  $("#dCh").onchange = e => { v.ch = e.target.value; renderDet(); };
+  $("#dBy").onchange = e => { v.dby = e.target.value; v.sort = null; renderDet(); };
+  $("#dQ").oninput = e => { v.q = e.target.value; clearTimeout(renderDet.t); renderDet.t = setTimeout(() => { renderDet(); const i = $("#dQ"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }, 250); };
+  el.querySelectorAll("th[data-k]").forEach(th => th.onclick = () => { const k = th.dataset.k; v.sort = v.sort && v.sort[0] === k ? [k, -v.sort[1]] : [k, -1]; renderDet(); });
+}
+
+/* ===== 렌더: 계약조건 ===== */
+function renderRules() {
+  const R = ST.res;
+  const chs = [...new Set([...(R ? R.chs : []), ...(ST.ref ? ST.ref.channels : [])])];
+  $("#chRules").innerHTML = `<thead><tr><th>채널</th><th>물류비 대상</th><th>과세 ×1.1</th><th>카테고리명 대체</th></tr></thead><tbody>${chs.length ? chs.map(ch => { const r = chRule(ch); return `<tr data-ch="${esc(ch)}"><td>${esc(ch)}</td><td><select data-f="log"><option value="direct"${r.log === "direct" ? " selected" : ""}>직납만</option><option value="all"${r.log === "all" ? " selected" : ""}>전체</option><option value="none"${r.log === "none" ? " selected" : ""}>없음</option></select></td><td><input type="checkbox" data-f="tax"${r.tax ? " checked" : ""}></td><td><input type="checkbox" data-f="fb"${r.fb ? " checked" : ""}></td></tr>`; }).join("") : `<tr><td colspan="4" class="muted">기준 파일이나 로우를 올리면 채널이 나와요.</td></tr>`}</tbody>`;
+  $("#chRules").querySelectorAll("tr[data-ch]").forEach(tr => tr.querySelectorAll("[data-f]").forEach(i => i.onchange = () => { const r = chRule(tr.dataset.ch), f = i.dataset.f; r[f] = i.type === "checkbox" ? i.checked : i.value; saveCfg(); run(); }));
+  const sel = (f, cur, opts) => `<select data-f="${f}">${opts.map(([v, l]) => `<option value="${v}"${v === cur ? " selected" : ""}>${l}</option>`).join("")}</select>`;
+  $("#exRules").innerHTML = `<thead><tr><th>사용</th><th>채널</th><th>항목명</th><th>구분</th><th>기준</th><th>대상</th><th>대상 값</th><th>율 / 월금액</th><th>계산 결과</th><th></th></tr></thead><tbody>${CFG.extra.length ? CFG.extra.map((e, i) => `<tr data-i="${i}">
+    <td><input type="checkbox" data-f="on"${e.on !== false ? " checked" : ""}></td>
+    <td><input data-f="ch" value="${esc(e.ch)}" placeholder="전 채널" list="chList"></td>
+    <td><input data-f="nm" value="${esc(e.nm)}" placeholder="예: 계약비용 추가"></td>
+    <td>${sel("grp", e.grp, [["p", "판관비"], ["j", "장려금"]])}</td>
+    <td>${sel("base", e.base, [["amt", "매입금액 %"], ["sales", "매출 %"], ["fix", "월 고정금액"]])}</td>
+    <td>${sel("tt", e.tt, [["big", "대카테고리"], ["small", "소카테고리"], ["code", "제품코드"]])}</td>
+    <td><input data-f="tg" value="${esc(e.tg)}" placeholder="비우면 전체"></td>
+    <td><input data-f="v" value="${esc(e.v)}" placeholder="${e.base === "fix" ? "원" : "예: 14%"}"></td>
+    <td class="n">${R ? mil(exAmt(e, R)) + "백만" : "-"}</td>
+    <td><button class="x" data-del="${i}">삭제</button></td></tr>`).join("") : `<tr><td colspan="10" class="muted">추가 조건 없음</td></tr>`}</tbody>`;
+  $("#exRules").insertAdjacentHTML("beforeend", `<datalist id="chList">${chs.map(c => `<option value="${esc(c)}">`).join("")}</datalist>`);
+  $("#exRules").querySelectorAll("tr[data-i]").forEach(tr => {
+    const e = CFG.extra[+tr.dataset.i];
+    tr.querySelectorAll("[data-f]").forEach(i => i.onchange = () => { e[i.dataset.f] = i.type === "checkbox" ? i.checked : i.value.trim(); saveCfg(); run(); });
+  });
+  $("#exRules").querySelectorAll("[data-del]").forEach(b => b.onclick = () => { CFG.extra.splice(+b.dataset.del, 1); saveCfg(); run(); });
+  // 거래조건 항목 끄기
+  const ref = ST.ref, off = new Set(CFG.off);
+  if (!ref) { $("#offList").innerHTML = "기준 파일을 올리면 항목이 나와요."; }
+  else {
+    const all = [...ref.rate.map(e => ["rate", e, "율"]), ...ref.dist.map(e => ["dist", e, "분배"]), ...ref.sku.map(e => ["sku", e, "SKU"])];
+    $("#offList").innerHTML = `<div class="tw" style="max-height:340px"><table><thead><tr><th>계산 포함</th><th>표</th><th>채널</th><th>구분자</th><th class="n">율/금액</th><th class="n">월금액</th></tr></thead><tbody>${all.map(([tb, e, l]) => { const k = tb + "|" + e.ch + "|" + e.key; return `<tr><td><input type="checkbox" data-off="${esc(k)}"${off.has(k) ? "" : " checked"}></td><td>${l}</td><td>${esc(e.ch || "공통")}</td><td>${esc(e.key)}</td><td class="n">${e.v != null ? (Math.abs(e.v) < 1 ? pct(e.v, 2) : won(e.v)) : e.s != null ? (Math.abs(e.s) < 1 ? pct(e.s, 2) : won(e.s)) : "-"}</td><td class="n">${e.w != null ? won(e.w) : "-"}</td></tr>`; }).join("")}</tbody></table></div>`;
+    $("#offList").querySelectorAll("[data-off]").forEach(i => i.onchange = () => { const s = new Set(CFG.off); i.checked ? s.delete(i.dataset.off) : s.add(i.dataset.off); CFG.off = [...s]; saveCfg(); run(); });
+  }
+  const n = CFG.extra.filter(e => e.on !== false).length + CFG.off.length;
+  $("#ruleBd").innerHTML = n ? `<span class="bd">${n}</span>` : "";
+}
+// 추가 조건 값: % 기준은 "14%"·"0.14"·"14" 모두 14%로, 월 고정금액은 원
+function exVal(e) { const v = num(e.v); if (v == null) return null; return e.base !== "fix" && Math.abs(v) >= 1 ? v / 100 : v; }
+function exHitR(e, r) { return (!e.ch || sameCh(e.ch, r.ch)) && (!e.tg || (e.tt === "code" ? code(e.tg) === r.code : e.tt === "small" ? norm(e.tg) === norm(r.small) : norm(e.tg) === norm(r.big))); }
+function exAmt(e, R) {   // 계약조건 표의 "계산 결과" 칸 (해당 조건만)
+  const v = exVal(e); if (e.on === false || v == null) return 0;
+  const hit = R.rows.filter(r => exHitR(e, r)), base = hit.reduce((s, r) => s + r.amt, 0);
+  return hit.reduce((s, r) => s + (e.base === "amt" ? v * r.amt : e.base === "sales" ? v * r.sales : base ? v * R.pr[r.ch].f * r.amt / base : 0), 0);
+}
+
+/* ===== 엑셀 ===== */
+function download() {
+  const R = ST.res; if (!R) return;
+  const wb = XLSX.utils.book_new(), rows = filtered();
+  const H = ["채널", "일자", "제품코드", "제품명", "대카테고리", "소카테고리", "전환유형명", "장려금분류", "판관비분류", "수량", "매입금액", "매입단가", "출고가", "총매출", "DC", "장려금", "판관비", "비용 계", "변동원가", "운송비", "CM", "CM율"];
+  const data = rows.map(r => [r.ch, r.day, r.code, r.name, r.big, r.small, r.tyn, r.jCls, r.pCls, r.qty, r.amt, r.inP, r.outP, r.sales, r.dc, r.jTot, r.pTot, r.cost, r.vc, r.tr, r.cm, r.sales ? r.cm / r.sales : null]);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([H, ...data]), "행별");
+  const sum = (lab, list) => [[lab, "매입금액", "총매출", "DC", "DC율", "장려금", "판관비", "비용율", "변동원가", "운송비", "CM", "CM율"], ...list.map(a => [a.lab ?? a.key, a.amt, a.sales, a.dc, a.dcR, a.jTot, a.pTot, a.costR, a.vc, a.tr, a.cm, a.cmR])];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sum("채널", [...agg(rows, r => r.ch, r => ({lab: r.ch})), total(rows)])), "채널별");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sum("대카테고리", [...agg(rows, r => r.big, r => ({lab: r.big})), total(rows)])), "카테고리별");
+  XLSX.writeFile(wb, `손익Simulation_${$("#ym").value || "결과"}.xlsx`);
+}
+function template() {
+  const wb = XLSX.utils.book_new();
+  const deal = [[], [null, "채널", null, "카테고리명", "항목", "구분자", "율", null, null, null, null, null, "채널", null, "카테고리명", "항목", "시트적용", "구분자", "율/금액(영업일수)", null, null, null, "금액(월)", null, null, "채널", "SKU", null, "항목", "시트적용", "구분자", "율/금액(영업일수)", null, null, null, "금액(월)"],
+    [null, "예) 쿠팡", null, "커피", "물류비", "커피물류비", 0.03, null, null, null, null, null, "쿠팡", null, "커피", "장려금", "장려금_분배기준(%)", "커피장려금_분배기준(%)", 0.05, null, null, null, null, null, null, "쿠팡", "1234567", null, "판관비", "판관비_SKU", "1234567판관비_SKU", null, null, null, null, 1000000]];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(deal), "거래조건");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["채널(비우면 공통)", "제품코드", "제품명", "장려금분배구분", "판매비분배구분"]]), "비용배부분류");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["제품코드", "제품명", "대카테고리", "소카테고리", "세분류", "면과세"]]), "제품분류");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["제품코드", "제품명", "출고가", "변동원가", "운송비", "채널(비우면 공통)", "면과세"]]), "기준정보");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["채널", "일자", "제품코드", "제품명", "카테고리명", "전환유형명", "EDI수량", "전환수량", "매입금액"]]), "매입로우");
+  XLSX.writeFile(wb, "손익Simulation_빈양식.xlsx");
+}
+
+/* ===== 실행 ===== */
+function run() {
+  try { ST.res = compute(); } catch (e) { console.error(e); alert("계산 오류: " + e.message); ST.res = null; }
+  if (ST.res && ST.view.ch !== "전체" && !ST.res.chs.includes(ST.view.ch)) ST.view.ch = "전체";
+  renderDays(); renderDash(); renderDet(); renderRules();
+}
+async function onRef(files) {
+  const f = files[0]; if (!f) return;
+  try {
+    const ref = parseRef(await readFile(f)); ST.ref = ref;
+    $("#refMsg").textContent = store.set("ref", ref) ? `${f.name} — 이 브라우저에 저장했어요.` : `${f.name} — 파일이 커서 저장은 못 했어요 (새로고침하면 다시 올려주세요).`;
+  } catch (e) { alert("기준 파일 읽기 실패: " + e.message); }
+  refChips(); run();
+}
+async function onRaw(files) {
+  ST.raw = []; ST.files = [];
+  for (const f of files) {
+    try { const {rows, skip} = parseRaw(await readFile(f), f.name); ST.raw.push(...rows); ST.files.push({name: f.name, n: rows.length, skip}); }
+    catch (e) { ST.files.push({name: f.name, err: e.message}); }
+  }
+  const yms = [...new Set(ST.raw.map(r => r.ym).filter(Boolean))].sort();
+  if (yms.length === 1) $("#ym").value = yms[0];
+  if (yms.length > 1) alert(`로우에 여러 달이 섞여 있어요: ${yms.join(", ")}\n한 달씩 올려주세요 (경과일·일할이 섞여요).`);
+  rawChips(); run();
+  if (ST.res) go("dash");
+}
+function drop(id, input, fn) {
+  const d = $(id); $(input).onchange = e => { fn([...e.target.files]); e.target.value = ""; };
+  d.ondragover = e => { e.preventDefault(); d.classList.add("over"); };
+  d.ondragleave = () => d.classList.remove("over");
+  d.ondrop = e => { e.preventDefault(); d.classList.remove("over"); fn([...e.dataTransfer.files]); };
+}
+function go(p) { document.querySelectorAll("nav button").forEach(b => b.classList.toggle("on", b.dataset.p === p)); document.querySelectorAll(".pane").forEach(s => s.classList.toggle("on", s.id === "p-" + p)); }
+$("#nav").onclick = e => { const b = e.target.closest("button"); if (b) go(b.dataset.p); };
+drop("#dRef", "#fRef", onRef); drop("#dRaw", "#fRaw", onRaw);
+$("#btnTpl").onclick = template;
+$("#btnForget").onclick = () => { if (!confirm("저장된 기준 파일과 계약조건을 지울까요?")) return; store.del("ref"); store.del("cfg"); ST.ref = null; CFG.chRules = {}; CFG.extra = []; CFG.off = []; refChips(); run(); $("#refMsg").textContent = "지웠어요."; };
+$("#addRule").onclick = () => { CFG.extra.push({on: true, ch: "", nm: "", grp: "p", base: "amt", tt: "big", tg: "", v: ""}); saveCfg(); renderRules(); };
+$("#ym").value = store.get("ym", "") || ""; $("#ym").onchange = () => { store.set("ym", $("#ym").value); run(); };
+$("#defCh").value = store.get("defCh", ""); $("#defCh").onchange = () => { store.set("defCh", $("#defCh").value.trim()); run(); };
+if (ST.ref) { refChips(); $("#refMsg").textContent = "저장된 기준 파일을 불러왔어요. 매입 로우만 올리면 돼요."; }
+renderRules();
+</script>
+</body>
+</html>
